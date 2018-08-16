@@ -27,10 +27,12 @@
 .max-content-columns { grid-auto-columns: max-content; }
 .fit-content-columns { grid-auto-columns: fit-content; }
 .flex-columns        { grid-auto-columns: 1fr; }
+.max-flex-columns    { grid-auto-columns: minmax(0px, 1fr); }
 .min-content-rows { grid-auto-rows: min-content; }
 .max-content-rows { grid-auto-rows: max-content; }
 .fit-content-rows { grid-auto-rows: fit-content; }
 .flex-rows        { grid-auto-rows: 1fr; }
+.max-flex-rows    { grid-auto-rows: minmax(0px, 1fr); }
 
 .height25  { height: 25px; }
 .height50  { height: 50px; }
@@ -87,6 +89,14 @@
   <div class="autoRowAutoColumnSpanning2 height25"   data-offset-x="0"   data-offset-y="50" data-expected-width="200" data-expected-height="25"></div>
 </div>
 
+<pre>flex max-function rows - items with relative height</pre>
+
+<div class="inline-grid alignItemsBaseline columns max-flex-rows">
+  <div class="firstRowFirstColumn height50"          data-offset-x="0"   data-offset-y="0"  data-expected-width="100" data-expected-height="50"></div>
+  <div class="firstRowSecondColumn height200Percent" data-offset-x="100" data-offset-y="0"  data-expected-width="100" data-expected-height="100"></div>
+  <div class="autoRowAutoColumnSpanning2 height25"   data-offset-x="0"   data-offset-y="50" data-expected-width="200" data-expected-height="25"></div>
+</div>
+
 <pre>auto-sized columns - items with relative width</pre>
 
 <div class="inline-grid justifyItemsBaseline rows">
@@ -122,6 +132,14 @@
 <pre>flexible-sized columns - items with relative width</pre>
 
 <div class="inline-grid justifyItemsBaseline rows flex-columns">
+  <div class="firstRowFirstColumn verticalRL width50"          data-offset-x="0"  data-offset-y="0"   data-expected-width="50"  data-expected-height="100"></div>
+  <div class="secondRowFirstColumn verticalRL width200Percent" data-offset-x="0"  data-offset-y="100" data-expected-width="100" data-expected-height="100"></div>
+  <div class="firstRowSpanning2AutoColumn verticalRL width25"  data-offset-x="50" data-offset-y="0"   data-expected-width="25"  data-expected-height="200"></div>
+</div>
+
+<pre>flex max-function columns - items with relative width</pre>
+
+<div class="inline-grid justifyItemsBaseline rows max--flex-columns">
   <div class="firstRowFirstColumn verticalRL width50"          data-offset-x="0"  data-offset-y="0"   data-expected-width="50"  data-expected-height="100"></div>
   <div class="secondRowFirstColumn verticalRL width200Percent" data-offset-x="0"  data-offset-y="100" data-expected-width="100" data-expected-height="100"></div>
   <div class="firstRowSpanning2AutoColumn verticalRL width25"  data-offset-x="50" data-offset-y="0"   data-expected-width="25"  data-expected-height="200"></div>
