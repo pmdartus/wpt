@@ -1,12 +1,14 @@
-import os
-import subprocess
 import json
+import os
+import stat
+import subprocess
+from collections import deque
 
 from .sourcefile import SourceFile
 
 
 class Git(object):
-    def __init__(self, repo_root, url_base, filters=None):
+    def __init__(self, repo_root, url_base, cache_path):
         self.root = os.path.abspath(repo_root)
         self.git = Git.get_func(repo_root)
         self.url_base = url_base
@@ -23,10 +25,10 @@ class Git(object):
         return git
 
     @classmethod
-    def for_path(cls, path, url_base):
+    def for_path(cls, path, url_base, cache_path):
         git = Git.get_func(path)
         try:
-            return cls(git("rev-parse", "--show-toplevel").rstrip(), url_base)
+            return cls(git("rev-parse", "--show-toplevel").rstrip(), url_base, cache_path)
         except subprocess.CalledProcessError:
             return None
 
@@ -73,72 +75,112 @@ class Git(object):
                                  hash,
                                  contents=contents)
 
+    def dump_caches(self):
+        pass
+
 
 class FileSystem(object):
-    def __init__(self, root, url_base, mtime_filter):
+    def __init__(self, root, url_base, cache_path, rebuild=False):
         self.root = root
         self.url_base = url_base
+        if cache_path is not None:
+            self.mtime_cache = MtimeCache(cache_path, rebuild)
+            self.ignore_cache = GitIgnoreCache(cache_path, root, rebuild)
+        else:
+            self.mtime_cache = None
+            self.ignore_cache = None
         from gitignore import gitignore
-        self.path_filter = gitignore.PathFilter(self.root, extras=[".git/"])
-        self.mtime_filter = mtime_filter
+        self.path_filter = gitignore.PathFilter(self.root,
+                                                extras=[".git/"],
+                                                cache=self.ignore_cache)
 
     def __iter__(self):
         # Avoiding some relpath calls is a performance win
-        old_pwd = os.path.abspath(".")
-        os.chdir(self.root)
-        for dirpath, dirnames, filenames in os.walk(self.root):
-            for filename in filenames:
+        mtime_cache = self.mtime_cache
+        for dirpath, dirnames, filenames in self.path_filter(walk(".")):
+            for filename, path_stat in filenames:
                 # We strip the ./ prefix off the path
-                path = os.path.join(dirpath, filename)[2:]
-                if self.path_filter(path):
-                    try:
-                        stat = os.stat(path)
-                    except OSError:
-                        continue
-                    if self.mtime_filter.update(path, stat):
-                        yield SourceFile(self.root, path, self.url_base)
+                path = os.path.join(dirpath, filename)
+                if mtime_cache is None or mtime_cache.updated(path, path_stat):
+                    yield SourceFile(self.root, path, self.url_base)
+        self.ignore_cache.dump()
 
-            dirnames[:] = [item for item in dirnames if self.path_filter(
-                           os.path.relpath(os.path.join(dirpath, item), self.root) + "/")]
-        os.chdir(old_pwd)
+    def dump_caches(self):
+        for cache in [self.mtime_cache, self.ignore_cache]:
+            if cache is not None:
+                cache.dump()
 
 
-class MtimeFilter(object):
-    def __init__(self, root):
-        self.path = os.path.join(root, "cache.json")
-        self.root = root
-        self.data = self.load()
-        self.updated = set()
+class CacheFile(object):
+    file_name = None
+
+    def __init__(self, cache_root, rebuild=False):
+        if not os.path.exists(cache_root):
+            os.makedirs(cache_root)
+        self.path = os.path.join(cache_root, self.file_name)
+        self.data = self.load(rebuild)
         self.modified = False
 
     def dump(self):
-        missing = set(self.data.keys()) - self.updated
-        if not missing or not self.modified:
+        if not self.modified:
             return
-        for item in missing:
-            del self.data[item]
         with open(self.path, 'w') as f:
             json.dump(self.data, f, indent=1)
 
-    def load(self):
+    def load(self, rebuild=False):
+        data = {}
         try:
-            with open(self.path, 'r') as f:
-                return json.load(f)
+            if not rebuild:
+                with open(self.path, 'r') as f:
+                    data = json.load(f)
+                data = self.check_valid(data)
         except IOError:
-            return {}
+            pass
+        return data
 
-    def update(self, rel_path, stat=None):
-        self.updated.add(rel_path)
-        try:
-            if stat is None:
-                stat = os.stat(os.path.join(self.root,
-                                            rel_path))
-        except Exception:
-            return True
+    def check_valid(self, data):
+        """Check if the cached data is valid and return an updated copy of the
+        cache containing only data that can be used."""
+        return data
 
+
+class MtimeCache(CacheFile):
+    file_name = "mtime.json"
+
+    def updated(self, rel_path, stat):
+        """Return a boolean indicating whether the file changed since the cache was last updated.
+
+        This implicitly updates the cache with the new mtime data."""
         mtime = stat.st_mtime
         if mtime != self.data.get(rel_path):
             self.modified = True
             self.data[rel_path] = mtime
             return True
         return False
+
+
+class GitIgnoreCache(CacheFile):
+    file_name = "gitignore.json"
+
+    def __init__(self, cache_root, ignore_path, rebuild=False):
+        self.ignore_path = ignore_path
+        super(GitIgnoreCache, self).__init__(cache_root, rebuild=False)
+
+    def check_valid(self, data):
+        mtime = os.path.getmtime(self.ignore_path)
+        if data.get("/gitignore_file") != [self.ignore_path, mtime]:
+            self.modified = True
+            data = {}
+            data["/gitignore_file"] = [self.ignore_path, mtime]
+        return data
+
+    def __contains__(self, key):
+        return key in self.data
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        if self.data.get(key) != value:
+            self.modified = True
+            self.data[key] = value
