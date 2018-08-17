@@ -1,5 +1,4 @@
 import itertools
-import json
 import os
 from collections import defaultdict
 from six import iteritems, string_types
@@ -12,7 +11,7 @@ from .utils import from_os_path, to_os_path
 try:
     import ujson as json
 except ImportError:
-    pass
+    import json
 
 CURRENT_VERSION = 5
 
@@ -59,7 +58,7 @@ class TypeData(object):
     def __setitem__(self, key, value):
         self.data[key] = value
 
-    def __iter__(self):
+    def iteritems(self):
         self.load_all()
         for path, tests in iteritems(self.data):
             yield path, tests
@@ -106,6 +105,12 @@ class ManifestData(object):
 
     def __getitem__(self, key):
         return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def iteritems(self):
+        return iteritems(self.data)
 
 
 class Manifest(object):
@@ -242,7 +247,7 @@ class Manifest(object):
                 [t for t in sorted(test.to_json() for test in tests)]
                 for path, tests in iteritems(type_paths)
             }
-            for test_type, type_paths in iteritems(self._data)
+            for test_type, type_paths in self._data.iteritems()
         }
         rv = {"url_base": self.url_base,
               "paths": {from_os_path(k): v for k, v in iteritems(self._path_hash)},
@@ -305,5 +310,5 @@ def write(manifest, manifest_path):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     with open(manifest_path, "wb") as f:
-        json.dump(manifest.to_json(), f, sort_keys=True, indent=1, separators=(',', ': '))
+        json.dump(manifest.to_json(), f, sort_keys=True, indent=1)
         f.write("\n")
