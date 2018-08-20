@@ -1,10 +1,14 @@
+importScripts("./test-incrementer.js");
+
 let state = "send-sw-failure"
 onconnect = initialE => {
   let port = initialE.source;
   port.postMessage(state)
   port.onmessage = e => {
     if(state === "" && e.data === "send-window-failure") {
-      port.postMessage(new SharedArrayBuffer())
+      return createWasmModule().then(module => {
+        port.postMessage(module)
+      });
     } else {
       port.postMessage("failure")
     }
