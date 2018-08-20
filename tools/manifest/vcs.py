@@ -8,10 +8,11 @@ from .sourcefile import SourceFile
 
 
 class Git(object):
-    def __init__(self, repo_root, url_base, cache_path):
+    def __init__(self, repo_root, url_base, cache_path, rebuild=False):
         self.root = os.path.abspath(repo_root)
         self.git = Git.get_func(repo_root)
         self.url_base = url_base
+        # rebuild is a noop for now since we don't cache anything
 
     @staticmethod
     def get_func(repo_path):
@@ -25,10 +26,11 @@ class Git(object):
         return git
 
     @classmethod
-    def for_path(cls, path, url_base, cache_path):
+    def for_path(cls, path, url_base, cache_path, rebuild=False):
         git = Git.get_func(path)
         try:
-            return cls(git("rev-parse", "--show-toplevel").rstrip(), url_base, cache_path)
+            return cls(git("rev-parse", "--show-toplevel").rstrip(), url_base, cache_path,
+                       rebuild=rebuild)
         except subprocess.CalledProcessError:
             return None
 
