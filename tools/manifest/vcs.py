@@ -73,7 +73,7 @@ class Git(object):
                                  rel_path,
                                  self.url_base,
                                  hash,
-                                 contents=contents)
+                                 contents=contents), True
 
     def dump_caches(self):
         pass
@@ -95,14 +95,15 @@ class FileSystem(object):
                                                 cache=self.ignore_cache)
 
     def __iter__(self):
-        # Avoiding some relpath calls is a performance win
         mtime_cache = self.mtime_cache
         for dirpath, dirnames, filenames in self.path_filter(walk(".")):
             for filename, path_stat in filenames:
                 # We strip the ./ prefix off the path
                 path = os.path.join(dirpath, filename)
                 if mtime_cache is None or mtime_cache.updated(path, path_stat):
-                    yield SourceFile(self.root, path, self.url_base)
+                    yield SourceFile(self.root, path, self.url_base), True
+                else:
+                    yield path, False
         self.ignore_cache.dump()
 
     def dump_caches(self):
