@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<title>postMessage with user activtion to a worker</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+
+<script>
+"use strict";
+
+async_test(t => {
+  var received_with = false;
+  var received_without = false;
+
+  var worker = new Worker("worker_postMessage_user_activation.js");
+  worker.onmessage = t.step_func(e => {
+    assert_equals(e.userActivation, null);
+    if (e.data == 'with') {
+      received_with = true;
+    } else if (e.data == 'without') {
+      received_without = true;
+    }
+    if (received_with && received_without) t.done();
+  });
+
+  worker.postMessage('with', {includeUserActivation: true});
+  worker.postMessage('without', {includeUserActivation: false});
+}, "Post Message from a worker");
+</script>
