@@ -58,6 +58,18 @@
                 found:                  false
             },
             {
+                name:                   "measure_no_start_end",
+                startMark:              undefined,
+                endMark:                "mark_end",
+                startTime:              undefined,
+                duration:               undefined,
+                entryType:              "measure",
+                entryMatch:             undefined,
+                order:                  undefined,
+                found:                  false
+            },
+            // intentional duplicate of the first measure, used to confirm names can be re-used
+            {
                 name:                   "measure_no_start_no_end",
                 startMark:              undefined,
                 endMark:                undefined,
@@ -150,8 +162,25 @@
                     scenario.startTime = startMarkValue;
 
                     // when endMark is provided to the measure() call, the value of the mark whose name is
-                    // provided is used for the startMark
+                    // provided is used for the endMark
                     scenario.duration = endMarkValue - startMarkValue;
+                }
+                else if (scenario.startMark == undefined && scenario.endMark != undefined)
+                {
+                    // endMark is defined but startMark is undefined, provide both parameters
+                    window.performance.measure(scenario.name, scenario.startMark, scenario.endMark);
+
+                    // when startMark isn't provided to the measure() call, a DOMHighResTimeStamp corresponding
+                    // to the navigationStart attribute with a timebase of the same attribute is used; this is
+                    // equivalent to 0
+                    scenario.startTime = 0;
+
+                    // when endMark is provided to the measure() call, the value of the mark whose name is
+                    // provided is used for the endMark
+                    scenario.duration = endMarkValue;
+                } else
+                {
+                    test_true(false, 'Test measure scenario unhandled');
                 }
             }
 
@@ -318,6 +347,7 @@
                     provided</li>
                 <li>"measure_start_no_end": created using a measure() call with only the startMark provided</li>
                 <li>"measure_start_end": created using a measure() call with both a startMark or endMark provided</li>
+                <li>"measure_no_start_end": created using a measure() call with only the endMark provided</li>
                 <li>"measure_no_start_no_end": duplicate of the first measure, used to confirm names can be re-used</li>
             </ul>
            After creating each measure, the existence of these measures is validated by calling
